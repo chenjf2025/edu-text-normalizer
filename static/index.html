@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduTextNormalizer - 教育文本规范化</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 30px; }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 12px 24px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .tab-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-weight: 600; color: #333; margin-bottom: 8px; }
+        .input-group textarea {
+            width: 100%; height: 120px; padding: 15px;
+            border: 2px solid #e0e0e0; border-radius: 10px;
+            font-size: 16px; resize: vertical;
+            transition: border-color 0.3s;
+        }
+        .input-group textarea:focus { outline: none; border-color: #667eea; }
+        .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+        .example-btn {
+            background: #f0f0f0; border: none; padding: 8px 16px;
+            border-radius: 20px; cursor: pointer; font-size: 14px;
+            color: #666; transition: all 0.3s;
+        }
+        .example-btn:hover { background: #667eea; color: white; }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; padding: 15px 40px;
+            border-radius: 10px; font-size: 18px; cursor: pointer;
+            width: 100%; transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .result-card {
+            background: #f8f9fa; border-radius: 12px; padding: 20px;
+            margin-top: 20px; display: none;
+        }
+        .result-card.show { display: block; }
+        .result-item { margin-bottom: 15px; }
+        .result-label { font-weight: 600; color: #666; font-size: 14px; margin-bottom: 5px; }
+        .result-value {
+            background: white; padding: 15px; border-radius: 8px;
+            font-size: 18px; color: #333; border: 1px solid #e0e0e0;
+        }
+        .result-value.dark {
+            font-family: 'Consolas', monospace;
+            background: #2d3748; color: #68d391;
+        }
+        .subject-tag {
+            display: inline-block; padding: 5px 15px;
+            border-radius: 20px; font-size: 14px; font-weight: 600;
+        }
+        .subject-math { background: #fed7d7; color: #c53030; }
+        .subject-chemistry { background: #c6f6d5; color: #276749; }
+        .subject-physics { background: #bee3f8; color: #2b6cb0; }
+        .subject-biology { background: #fbd5e3; color: #97266d; }
+        .subject-common { background: #e2e8f0; color: #4a5568; }
+        .history-item {
+            background: #f8f9fa; padding: 15px; border-radius: 8px;
+            margin-bottom: 10px; cursor: pointer; transition: background 0.2s;
+        }
+        .history-item:hover { background: #e9ecef; }
+        .history-input { font-family: monospace; color: #666; font-size: 14px; }
+        .history-output { color: #333; font-size: 16px; margin-top: 5px; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .loading.show { display: block; }
+        .spinner {
+            width: 40px; height: 40px; margin: 0 auto 10px;
+            border: 4px solid #f3f3f3; border-top: 4px solid #667eea;
+            border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error-msg { color: #c53030; text-align: center; padding: 10px; }
+        
+        /* 图片上传样式 */
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f8f9fa;
+        }
+        .upload-area.dragover {
+            background: #e8eaff;
+            border-color: #764ba2;
+        }
+        .upload-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+        .upload-hint {
+            color: #999;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .upload-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        #fileInput {
+            display: none;
+        }
+        .preview-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .preview-img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        /* 文件上传样式 */
+        .file-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .file-upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+        .file-upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        /* 历史标签页 */
+        .history-list { max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>EduTextNormalizer</h1>
+            <p>教育场景智能文本规范化引擎 - 将公式转换为自然语言</p>
+        </div>
+
+        <!-- 标签切换 -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="text">文本输入</button>
+            <button class="tab-btn" data-tab="image">图片OCR</button>
+            <button class="tab-btn" data-tab="batch">批量处理</button>
+            <button class="tab-btn" data-tab="history">历史记录</button>
+        </div>
+
+        <!-- 文本输入 -->
+        <div class="card tab-content active" id="tab-text">
+            <div class="card-title">文本规范化</div>
+            <div class="input-group">
+                <label>输入公式或文本：</label>
+                <textarea id="inputText" placeholder="输入数学公式、化学式、物理单位等，如：x=\frac{-b}{2a}"></textarea>
+            </div>
+
+            <div class="examples">
+                <button class="example-btn" data-text="x=\frac{-b}{2a}">求根公式</button>
+                <button class="example-btn" data-text="\alpha+\beta=\gamma">希腊字母</button>
+                <button class="example-btn" data-text="y=2\sqrt{x^2-5}+3x^2">根号公式</button>
+                <button class="example-btn" data-text="H_2SO_4">化学式</button>
+                <button class="example-btn" data-text="DNA">DNA</button>
+                <button class="example-btn" data-text="ATP">ATP</button>
+                <button class="example-btn" data-text="220V">电压</button>
+                <button class="example-btn" data-text="9.8m/s^2">加速度</button>
+                <button class="example-btn" data-text="(1+x)^n=1+\frac{nx}{1!}+\frac{n(n-1)x^2}{2!}">泰勒展开</button>
+            </div>
+
+            <div class="subject-selector" style="margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+                <label style="font-weight:600; color:#333;">指定学科：</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="subject" value="" checked style="accent-color:#667eea;"> 自动检测
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="subject" value="math" style="accent-color:#667eea;"> 数学
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="subject" value="chemistry" style="accent-color:#667eea;"> 化学
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="subject" value="physics" style="accent-color:#667eea;"> 物理
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="subject" value="biology" style="accent-color:#667eea;"> 生物
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="subject" value="common" style="accent-color:#667eea;"> 普通文本
+                    </label>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="submitBtn">开始规范化</button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>处理中...</p>
+            </div>
+
+            <div class="error-msg" id="errorMsg" style="display:none;"></div>
+
+            <div class="result-card" id="resultCard">
+                <div class="result-item">
+                    <div class="result-label">识别学科</div>
+                    <div id="subjectBadge" class="subject-tag"></div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">原始输入</div>
+                    <div class="result-value dark" id="originalText"></div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">规范化结果</div>
+                    <div class="result-value" id="normalizedText"></div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">处理耗时</div>
+                    <div class="result-value" id="processTime"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图片OCR -->
+        <div class="card tab-content" id="tab-image">
+            <div class="card-title">图片OCR识别与规范化</div>
+            
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📷</div>
+                <div class="upload-text">拖拽图片到这里，或点击下方按钮选择</div>
+                <div class="upload-hint">支持 PNG、JPG、GIF、BMP、WebP 格式</div>
+                <label class="upload-btn">
+                    选择图片文件
+                    <input type="file" id="imageFileInput" accept="image/*" style="display:none;">
+                </label>
+            </div>
+
+            <div class="preview-container" id="imagePreview" style="display:none;">
+                <img id="previewImg" class="preview-img" alt="预览">
+                <div class="file-info" id="fileInfo"></div>
+            </div>
+
+            <button class="btn-primary" id="ocrBtn" style="margin-top:20px;" disabled>识别并规范化</button>
+
+            <div class="subject-selector" style="margin-top:20px; display:flex; align-items:center; gap:10px;">
+                <label style="font-weight:600; color:#333;">指定学科：</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="ocrSubject" value="" checked style="accent-color:#667eea;"> 自动检测
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="ocrSubject" value="math" style="accent-color:#667eea;"> 数学
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="ocrSubject" value="chemistry" style="accent-color:#667eea;"> 化学
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="ocrSubject" value="physics" style="accent-color:#667eea;"> 物理
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="ocrSubject" value="biology" style="accent-color:#667eea;"> 生物
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="ocrSubject" value="common" style="accent-color:#667eea;"> 普通文本
+                    </label>
+                </div>
+            </div>
+
+            <div class="loading" id="ocrLoading">
+                <div class="spinner"></div>
+                <p>OCR识别中...</p>
+            </div>
+
+            <div class="error-msg" id="ocrErrorMsg" style="display:none;"></div>
+
+            <div class="result-card" id="ocrResultCard">
+                <div class="result-item">
+                    <div class="result-label">识别学科</div>
+                    <div id="ocrSubjectBadge" class="subject-tag"></div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">OCR识别的文本</div>
+                    <div class="result-value dark" id="ocrText"></div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">规范化结果</div>
+                    <div class="result-value" id="ocrNormalizedText"></div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">处理耗时</div>
+                    <div class="result-value" id="ocrProcessTime"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量处理 -->
+        <div class="card tab-content" id="tab-batch">
+            <div class="card-title">批量文本规范化</div>
+            
+            <div class="input-group">
+                <label>输入多行文本（每行一个）：</label>
+                <textarea id="batchInput" placeholder="每行一个公式或文本，如：&#10;E = mc^2&#10;H2SO4&#10;DNA&#10;220V" style="height:200px;"></textarea>
+            </div>
+
+            <div class="subject-selector" style="margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+                <label style="font-weight:600; color:#333;">指定学科（全部适用）：</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="batchSubject" value="" checked style="accent-color:#667eea;"> 自动检测
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="batchSubject" value="math" style="accent-color:#667eea;"> 数学
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="batchSubject" value="chemistry" style="accent-color:#667eea;"> 化学
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="batchSubject" value="physics" style="accent-color:#667eea;"> 物理
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="batchSubject" value="biology" style="accent-color:#667eea;"> 生物
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="radio" name="batchSubject" value="common" style="accent-color:#667eea;"> 普通文本
+                    </label>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="batchSubmitBtn">批量规范化</button>
+
+            <div class="loading" id="batchLoading">
+                <div class="spinner"></div>
+                <p>批量处理中...</p>
+            </div>
+
+            <div class="error-msg" id="batchErrorMsg" style="display:none;"></div>
+
+            <div id="batchResults" style="margin-top:20px;"></div>
+        </div>
+
+        <!-- 历史记录 -->
+        <div class="card tab-content" id="tab-history">
+            <div class="card-title">历史记录</div>
+            <div class="history-list" id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        
+        // 标签页切换
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+                document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+                btn.classList.add('active');
+                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // 文本规范化
+        const inputEl = document.getElementById('inputText');
+        const btnEl = document.getElementById('submitBtn');
+        const loadingEl = document.getElementById('loading');
+        const resultCardEl = document.getElementById('resultCard');
+        const errorMsgEl = document.getElementById('errorMsg');
+
+        async function doNormalize() {
+            const input = inputEl.value.trim();
+            if (!input) return;
+
+            // 获取选中的学科
+            const selectedSubject = document.querySelector('input[name="subject"]:checked').value;
+
+            btnEl.disabled = true;
+            btnEl.textContent = '处理中...';
+            loadingEl.classList.add('show');
+            resultCardEl.classList.remove('show');
+            errorMsgEl.style.display = 'none';
+
+            try {
+                const payload = { text: input };
+                if (selectedSubject) {
+                    payload.subject = selectedSubject;
+                }
+                const response = await fetch(API_BASE + '/normalize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+
+                document.getElementById('subjectBadge').textContent = {
+                    'math': '数学', 'chemistry': '化学', 'physics': '物理',
+                    'biology': '生物', 'common': '普通文本'
+                }[data.subject] || data.subject;
+                document.getElementById('subjectBadge').className = 'subject-tag subject-' + data.subject;
+                document.getElementById('originalText').textContent = data.original_text || input;
+                document.getElementById('normalizedText').textContent = data.normalized_text;
+                document.getElementById('processTime').textContent = data.process_time_ms.toFixed(2) + ' 毫秒';
+                resultCardEl.classList.add('show');
+                addToHistory(input, data.normalized_text, data.subject);
+
+            } catch (error) {
+                errorMsgEl.textContent = '请求失败: ' + error.message;
+                errorMsgEl.style.display = 'block';
+            } finally {
+                btnEl.disabled = false;
+                btnEl.textContent = '开始规范化';
+                loadingEl.classList.remove('show');
+            }
+        }
+
+        btnEl.addEventListener('click', doNormalize);
+        inputEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doNormalize(); }
+        });
+
+        // 示例按钮
+        document.querySelectorAll('.example-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                inputEl.value = this.getAttribute('data-text');
+                document.querySelector('[data-tab="text"]').click();
+                inputEl.focus();
+            });
+        });
+
+        // 历史记录
+        function addToHistory(input, output, subject) {
+            let history = JSON.parse(localStorage.getItem('normHistory') || '[]');
+            history.unshift({ input, output, subject, time: new Date().toLocaleString() });
+            history = history.slice(0, 50);
+            localStorage.setItem('normHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('normHistory') || '[]');
+            const container = document.getElementById('historyList');
+            if (history.length === 0) {
+                container.innerHTML = '<p style="color:#999;">暂无历史记录</p>';
+                return;
+            }
+            container.innerHTML = history.map(function(item, idx) {
+                const subjectClass = 'subject-' + (item.subject || 'common');
+                const subjectName = {math:'数学',chemistry:'化学',physics:'物理',biology:'生物',common:'普通'}[item.subject] || item.subject;
+                return '<div class="history-item" style="border-left:4px solid #667eea;padding-left:15px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span class="subject-tag ' + subjectClass + '">' + subjectName + '</span>' +
+                    '<span style="color:#999;font-size:12px;">' + item.time + '</span></div>' +
+                    '<div class="history-input" style="margin-top:8px;">输入: ' + item.input + '</div>' +
+                    '<div class="history-output">输出: ' + item.output + '</div></div>';
+            }).join('');
+        }
+
+        // 图片上传
+        const uploadArea = document.getElementById('uploadArea');
+        const imageFileInput = document.getElementById('imageFileInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewImg = document.getElementById('previewImg');
+        const fileInfo = document.getElementById('fileInfo');
+        const ocrBtn = document.getElementById('ocrBtn');
+
+        let selectedFile = null;
+
+        uploadArea.addEventListener('click', function() { imageFileInput.click(); });
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                handleFile(files[0]);
+            }
+        });
+
+        imageFileInput.addEventListener('change', function() {
+            if (this.files.length > 0) handleFile(this.files[0]);
+        });
+
+        function handleFile(file) {
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                fileInfo.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+                imagePreview.style.display = 'block';
+                ocrBtn.disabled = false;
+                // 清空input，允许重复选择同一文件
+                imageFileInput.value = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        ocrBtn.addEventListener('click', async function() {
+            if (!selectedFile) return;
+
+            ocrBtn.disabled = true;
+            ocrBtn.textContent = '识别中...';
+            document.getElementById('ocrLoading').classList.add('show');
+            document.getElementById('ocrResultCard').classList.remove('show');
+            document.getElementById('ocrErrorMsg').style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                // 获取选中的学科
+                const ocrSubject = document.querySelector('input[name="ocrSubject"]:checked').value;
+                if (ocrSubject) {
+                    formData.append('subject', ocrSubject);
+                }
+
+                const response = await fetch(API_BASE + '/normalize/image/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+
+                document.getElementById('ocrSubjectBadge').textContent = {
+                    'math': '数学', 'chemistry': '化学', 'physics': '物理',
+                    'biology': '生物', 'common': '普通文本'
+                }[data.subject] || data.subject;
+                document.getElementById('ocrSubjectBadge').className = 'subject-tag subject-' + data.subject;
+                document.getElementById('ocrText').textContent = data.ocr_text || '(无文本)';
+                document.getElementById('ocrNormalizedText').textContent = data.normalized_text || '(无结果)';
+                document.getElementById('ocrProcessTime').textContent = data.process_time_ms.toFixed(2) + ' 毫秒';
+                document.getElementById('ocrResultCard').classList.add('show');
+
+                if (data.ocr_text && data.normalized_text) {
+                    addToHistory(data.ocr_text, data.normalized_text, data.subject);
+                }
+
+            } catch (error) {
+                document.getElementById('ocrErrorMsg').textContent = '请求失败: ' + error.message;
+                document.getElementById('ocrErrorMsg').style.display = 'block';
+            } finally {
+                ocrBtn.disabled = false;
+                ocrBtn.textContent = '识别并规范化';
+                document.getElementById('ocrLoading').classList.remove('show');
+            }
+        });
+
+        // 批量处理
+        const batchSubmitBtn = document.getElementById('batchSubmitBtn');
+        const batchInput = document.getElementById('batchInput');
+        const batchLoading = document.getElementById('batchLoading');
+        const batchErrorMsg = document.getElementById('batchErrorMsg');
+        const batchResults = document.getElementById('batchResults');
+
+        batchSubmitBtn.addEventListener('click', async function() {
+            const texts = batchInput.value.trim().split('\n').filter(function(t) { return t.trim(); });
+            if (texts.length === 0) return;
+
+            batchSubmitBtn.disabled = true;
+            batchSubmitBtn.textContent = '处理中...';
+            batchLoading.classList.add('show');
+            batchErrorMsg.style.display = 'none';
+            batchResults.innerHTML = '';
+
+            try {
+                const batchSubject = document.querySelector('input[name="batchSubject"]:checked').value;
+                const payload = { texts: texts };
+                if (batchSubject) {
+                    payload.subjects = texts.map(function() { return batchSubject; });
+                }
+                const response = await fetch(API_BASE + '/normalize/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const results = await response.json();
+
+                let html = '<div style="display:grid;gap:15px;">';
+                results.forEach(function(r, idx) {
+                    const subjectClass = 'subject-' + r.subject;
+                    const subjectName = {math:'数学',chemistry:'化学',physics:'物理',biology:'生物',common:'普通'}[r.subject] || r.subject;
+                    html += '<div style="background:#f8f9fa;padding:15px;border-radius:8px;border-left:4px solid #667eea;">' +
+                        '<div style="display:flex;justify-content:space-between;margin-bottom:8px;">' +
+                        '<span class="subject-tag ' + subjectClass + '">' + subjectName + '</span>' +
+                        '<span style="color:#999;font-size:12px;">' + r.process_time_ms.toFixed(2) + 'ms</span></div>' +
+                        '<div style="font-family:monospace;color:#666;">' + r.original_text + '</div>' +
+                        '<div style="color:#333;font-size:16px;margin-top:5px;">' + r.normalized_text + '</div></div>';
+                    addToHistory(r.original_text, r.normalized_text, r.subject);
+                });
+                html += '</div>';
+                batchResults.innerHTML = html;
+
+            } catch (error) {
+                batchErrorMsg.textContent = '请求失败: ' + error.message;
+                batchErrorMsg.style.display = 'block';
+            } finally {
+                batchSubmitBtn.disabled = false;
+                batchSubmitBtn.textContent = '批量规范化';
+                batchLoading.classList.remove('show');
+            }
+        });
+
+        // 初始化
+        renderHistory();
+    </script>
+</body>
+</html>
